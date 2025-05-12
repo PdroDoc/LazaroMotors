@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LazaroMotors | Consulta FIPE Premium</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .gold-text {
+            color: #D4AF37;
+        }
+        .gold-border {
+            border-color: #D4AF37;
+        }
+        .hover-gold:hover {
+            color: #D4AF37;
+            transition: all 0.3s ease;
+        }
+        .select-style {
+            background-color: #1E1E1E;
+            border: 1px solid #333;
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            appearance: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-12">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 gold-text" style="font-family: 'Playfair Display', serif;">LazaroMotors</h1>
+            <p class="text-xl text-gray-300">Valor real de veículos de luxo</p>
+        </header>
+
+        <!-- Search Box -->
+        <div class="max-w-2xl mx-auto bg-black bg-opacity-50 p-8 rounded-lg border gold-border mb-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label class="block text-gray-400 mb-2">Tipo de Veículo</label>
+                    <select id="vehicle-type" class="w-full select-style hover-gold">
+                        <option value="carros">Carros</option>
+                        <option value="motos">Motos</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-2">Marca</label>
+                    <select id="brand" class="w-full select-style hover-gold" disabled>
+                        <option>Selecione primeiro o tipo</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-2">Modelo</label>
+                    <select id="model" class="w-full select-style hover-gold" disabled>
+                        <option>Selecione a marca</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-2">Ano</label>
+                    <select id="year" class="w-full select-style hover-gold" disabled>
+                        <option>Selecione o modelo</option>
+                    </select>
+                </div>
+            </div>
+            <button id="search-btn" class="w-full bg-transparent gold-border border-2 text-white py-3 px-6 rounded hover:bg-yellow-900 hover:bg-opacity-20 transition duration-300">
+                Consultar Valor
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden max-w-2xl mx-auto bg-black bg-opacity-50 p-8 rounded-lg border gold-border mb-12">
+            <h2 class="text-2xl gold-text mb-6" style="font-family: 'Playfair Display', serif;">Resultado da Consulta</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <div>
+                    <h3 id="vehicle-name" class="text-xl font-bold mb-2"></h3>
+                    <p class="text-gray-400">Código FIPE: <span id="fipe-code" class="text-white"></span></p>
+                    <p class="text-gray-400">Ano Modelo: <span id="vehicle-year" class="text-white"></span></p>
+                </div>
+                <div class="text-right">
+                    <p class="text-gray-400">Valor atual</p>
+                    <p id="current-price" class="text-3xl gold-text font-bold"></p>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h3 class="text-xl font-bold mb-4 gold-text">Histórico de Valores</h3>
+                <div class="bg-black bg-opacity-30 p-4 rounded">
+                    <canvas id="price-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center text-gray-500 mt-16">
+            <p>LazaroMotors &copy; 2023 - O padrão em consultas de veículos de luxo</p>
+        </footer>
+    </div>
+
+    <script>
+        // API Configuration
+        const BASE_URL = 'https://parallelum.com.br/fipe/api/v1';
+
+        // DOM Elements
+        const vehicleTypeSelect = document.getElementById('vehicle-type');
+        const brandSelect = document.getElementById('brand');
+        const modelSelect = document.getElementById('model');
+        const yearSelect = document.getElementById('year');
+        const searchBtn = document.getElementById('search-btn');
+        const resultsSection = document.getElementById('results');
+        const vehicleName = document.getElementById('vehicle-name');
+        const fipeCode = document.getElementById('fipe-code');
+        const vehicleYear = document.getElementById('vehicle-year');
+        const currentPrice = document.getElementById('current-price');
+        const priceChartCtx = document.getElementById('price-chart').getContext('2d');
+
+        // Variables
+        let priceChart = null;
+        let lastSearchedVehicle = null;
+
+        // Event Listeners
+        vehicleTypeSelect.addEventListener('change', loadBrands);
+        brandSelect.addEventListener('change', loadModels);
+        modelSelect.addEventListener('change', loadYears);
+        searchBtn.addEventListener('click', searchVehicle);
+
+        // Functions
+        async function loadBrands() {
+            const vehicleType = vehicleTypeSelect.value;
+            
+            brandSelect.disabled = true;
+            brandSelect.innerHTML = '<option>Carregando marcas...</option>';
+            
+            modelSelect.disabled = true;
+            modelSelect.innerHTML = '<option>Selecione a marca</option>';
+            
+            yearSelect.disabled = true;
+            yearSelect.innerHTML = '<option>Selecione o modelo</option>';
+
+            try {
+                const response = await fetch(`${BASE_URL}/${vehicleType}/marcas`);
+                const brands = await response.json();
+                
+                brandSelect.innerHTML = '<option>Selecione a marca</option>';
+                brands.forEach(brand => {
+                    const option = document.createElement('option');
+                    option.value = brand.codigo;
+                    option.textContent = brand.nome;
+                    brandSelect.appendChild(option);
+                });
+                
+                brandSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading brands:', error);
+                brandSelect.innerHTML = '<option>Erro ao carregar marcas</option>';
+            }
+        }
+
+        async function loadModels() {
+            const vehicleType = vehicleTypeSelect.value;
+            const brandCode = brandSelect.value;
+            
+            modelSelect.disabled = true;
+            modelSelect.innerHTML = '<option>Carregando modelos...</option>';
+            
+            yearSelect.disabled = true;
+            yearSelect.innerHTML = '<option>Selecione o modelo</option>';
+
+            try {
+                const response = await fetch(`${BASE_URL}/${vehicleType}/marcas/${brandCode}/modelos`);
+                const data = await response.json();
+                const models = data.modelos;
+                
+                modelSelect.innerHTML = '<option>Selecione o modelo</option>';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.codigo;
+                    option.textContent = model.nome;
+                    modelSelect.appendChild(option);
+                });
+                
+                modelSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading models:', error);
+                modelSelect.innerHTML = '<option>Erro ao carregar modelos</option>';
+            }
+        }
+
+        async function loadYears() {
+            const vehicleType = vehicleTypeSelect.value;
+            const brandCode = brandSelect.value;
+            const modelCode = modelSelect.value;
+            
+            yearSelect.disabled = true;
+            yearSelect.innerHTML = '<option>Carregando anos...</option>';
+
+            try {
+                const response = await fetch(`${BASE_URL}/${vehicleType}/marcas/${brandCode}/modelos/${modelCode}/anos`);
+                const years = await response.json();
+                
+                yearSelect.innerHTML = '<option>Selecione o ano</option>';
+                years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year.codigo;
+                    option.textContent = year.nome;
+                    yearSelect.appendChild(option);
+                });
+                
+                yearSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading years:', error);
+                yearSelect.innerHTML = '<option>Erro ao carregar anos</option>';
+            }
+        }
+
+        async function searchVehicle() {
+            const vehicleType = vehicleTypeSelect.value;
+            const brandCode = brandSelect.value;
+            const modelCode = modelSelect.value;
+            const yearCode = yearSelect.value;
+
+            if (!vehicleType || !brandCode || !modelCode || !yearCode) {
+                alert('Por favor, preencha todos os campos');
+                return;
+            }
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Consultando...';
+
+            try {
+                const response = await fetch(`${BASE_URL}/${vehicleType}/marcas/${brandCode}/modelos/${modelCode}/anos/${yearCode}`);
+                const data = await response.json();
+                
+                // Save the last searched vehicle for historical data simulation
+                lastSearchedVehicle = {
+                    ...data,
+                    vehicleType,
+                    brandCode,
+                    modelCode,
+                    yearCode
+                };
+
+                // Display results
+                vehicleName.textContent = data.Modelo;
+                fipeCode.textContent = data.CodigoFipe;
+                vehicleYear.textContent = data.AnoModelo;
+                currentPrice.textContent = data.Valor;
+                
+                // Simulate historical data (since the FIPE API doesn't provide this)
+                const historicalData = generateHistoricalData(data.Valor);
+                renderPriceChart(historicalData);
+                
+                resultsSection.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error searching vehicle:', error);
+                alert('Erro ao consultar veículo');
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Consultar Valor';
+            }
+        }
+
+        function generateHistoricalData(currentPrice) {
+            // Since the FIPE API doesn't provide historical data, we'll simulate it
+            const price = parseFloat(currentPrice.replace('R$ ', '').replace('.', '').replace(',', '.'));
+            const months = 6;
+            const data = [];
+            
+            // Generate data points for the last 6 months
+            for (let i = months; i >= 0; i--) {
+                const date = new Date();
+                date.setMonth(date.getMonth() - i);
+                
+                // Random variation (-5% to +5%)
+                const variation = 1 + (Math.random() * 0.1 - 0.05);
+                const historicalPrice = price * variation;
+                
+                data.push({
+                    date: date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }),
+                    value: historicalPrice.toFixed(2)
+                });
+            }
+            
+            return data;
+        }
+
+        function renderPriceChart(data) {
+            // Destroy previous chart if exists
+            if (priceChart) {
+                priceChart.destroy();
+            }
+            
+            // Prepare chart data
+            const labels = data.map(item => item.date);
+            const values = data.map(item => parseFloat(item.value));
+            
+            // Create new chart
+            priceChart = new Chart(priceChartCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Valor (R$)',
+                        data: values,
+                        borderColor: '#D4AF37',
+                        backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#D4AF37',
+                        pointRadius: 4,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toLocaleString('pt-BR');
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
