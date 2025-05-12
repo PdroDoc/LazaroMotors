@@ -14,14 +14,13 @@
             color: #ffffff;
         }
         .gold-text {
-            color: #D4AF37;
+            background: linear-gradient(135deg, #D4AF37 0%, #F9E076 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline;
         }
         .gold-border {
             border-color: #D4AF37;
-        }
-        .hover-gold:hover {
-            color: #D4AF37;
-            transition: all 0.3s ease;
         }
         .select-style {
             background-color: #1E1E1E;
@@ -30,42 +29,90 @@
             padding: 12px;
             border-radius: 4px;
             appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23D4AF37'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .select-style:hover {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.3);
+        }
+        #results {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease-out;
+        }
+        #results.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .loading-gold {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(212, 175, 55, 0.3);
+            border-radius: 50%;
+            border-top-color: #D4AF37;
+            animation: spin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .hero-image {
+            box-shadow: 0 25px 50px -12px rgba(212, 175, 55, 0.25);
         }
     </style>
 </head>
 <body class="min-h-screen">
     <div class="container mx-auto px-4 py-12">
         <!-- Header -->
-        <header class="text-center mb-12">
+        <header class="text-center mb-8">
             <h1 class="text-4xl md:text-5xl font-bold mb-4 gold-text" style="font-family: 'Playfair Display', serif;">LazaroMotors</h1>
             <p class="text-xl text-gray-300">Valor real de veículos de luxo</p>
         </header>
+
+        <!-- Hero Image -->
+        <div class="hero-image relative h-64 md:h-96 overflow-hidden mb-12 rounded-lg border gold-border">
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent z-10"></div>
+            <img src="https://images.unsplash.com/photo-1494972308805-463bc619d34e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1280&q=80" 
+                 alt="Carro de luxo" 
+                 class="w-full h-full object-cover object-center">
+            <div class="absolute bottom-0 left-0 z-20 p-8">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-2" style="font-family: 'Playfair Display'">Precisão em Avaliações</h2>
+                <p class="text-gray-300 max-w-md">Valorize seu patrimônio com dados reais da tabela FIPE</p>
+            </div>
+        </div>
 
         <!-- Search Box -->
         <div class="max-w-2xl mx-auto bg-black bg-opacity-50 p-8 rounded-lg border gold-border mb-12">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
                     <label class="block text-gray-400 mb-2">Tipo de Veículo</label>
-                    <select id="vehicle-type" class="w-full select-style hover-gold">
+                    <select id="vehicle-type" class="w-full select-style">
                         <option value="carros">Carros</option>
                         <option value="motos">Motos</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-gray-400 mb-2">Marca</label>
-                    <select id="brand" class="w-full select-style hover-gold" disabled>
+                    <select id="brand" class="w-full select-style" disabled>
                         <option>Selecione primeiro o tipo</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-gray-400 mb-2">Modelo</label>
-                    <select id="model" class="w-full select-style hover-gold" disabled>
+                    <select id="model" class="w-full select-style" disabled>
                         <option>Selecione a marca</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-gray-400 mb-2">Ano</label>
-                    <select id="year" class="w-full select-style hover-gold" disabled>
+                    <select id="year" class="w-full select-style" disabled>
                         <option>Selecione o modelo</option>
                     </select>
                 </div>
@@ -76,7 +123,7 @@
         </div>
 
         <!-- Results -->
-        <div id="results" class="hidden max-w-2xl mx-auto bg-black bg-opacity-50 p-8 rounded-lg border gold-border mb-12">
+        <div id="results" class="max-w-2xl mx-auto bg-black bg-opacity-50 p-8 rounded-lg border gold-border mb-12">
             <h2 class="text-2xl gold-text mb-6" style="font-family: 'Playfair Display', serif;">Resultado da Consulta</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -131,6 +178,16 @@
         brandSelect.addEventListener('change', loadModels);
         modelSelect.addEventListener('change', loadYears);
         searchBtn.addEventListener('click', searchVehicle);
+
+        // Hover effects for selects
+        document.querySelectorAll('.select-style').forEach(select => {
+            select.addEventListener('mouseenter', () => {
+                select.classList.add('gold-border');
+            });
+            select.addEventListener('mouseleave', () => {
+                select.classList.remove('gold-border');
+            });
+        });
 
         // Functions
         async function loadBrands() {
@@ -233,7 +290,7 @@
             }
 
             searchBtn.disabled = true;
-            searchBtn.textContent = 'Consultando...';
+            searchBtn.innerHTML = '<span>Consultando</span><span class="loading-gold"></span>';
 
             try {
                 const response = await fetch(`${BASE_URL}/${vehicleType}/marcas/${brandCode}/modelos/${modelCode}/anos/${yearCode}`);
@@ -258,7 +315,16 @@
                 const historicalData = generateHistoricalData(data.Valor);
                 renderPriceChart(historicalData);
                 
-                resultsSection.classList.remove('hidden');
+                resultsSection.classList.add('show');
+                
+                // Scroll and pulse effect
+                setTimeout(() => {
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                    currentPrice.classList.add('animate-pulse');
+                    setTimeout(() => {
+                        currentPrice.classList.remove('animate-pulse');
+                    }, 2000);
+                }, 300);
             } catch (error) {
                 console.error('Error searching vehicle:', error);
                 alert('Erro ao consultar veículo');
@@ -346,6 +412,14 @@
                 }
             });
         }
+
+        // Initialize with results hidden
+        document.addEventListener('DOMContentLoaded', () => {
+            resultsSection.style.display = 'none';
+            setTimeout(() => {
+                resultsSection.style.display = 'block';
+            }, 100);
+        });
     </script>
 </body>
 </html>
